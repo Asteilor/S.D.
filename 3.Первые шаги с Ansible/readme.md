@@ -1,5 +1,6 @@
 1.Подготовка стенда.
-$ ansible --version
+
+```$ ansible --version
 ansible [core 2.16.3]
   config file = None
   configured module search path = ['/home/yup/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
@@ -8,14 +9,17 @@ ansible [core 2.16.3]
   executable location = /usr/bin/ansible
   python version = 3.12.3 (main, Feb  4 2025, 14:48:35) [GCC 13.3.0] (/usr/bin/python3)
   jinja version = 3.1.2
-  libyaml = True
+  libyaml = True````
 
 $ vagrant -v
 Vagrant 2.4.3
 Vagrantfile - generic/ubuntu2204
+````
+
 Предварительно готовим конфигурационный файл ansible.cfg , templates/nginx.conf.j2 и inventory-файд staging/hosts/ .
 
 2.Запуск стенда и playbook.
+```
 $ vagrant up
 $ vagrant status
 Current machine states:
@@ -28,10 +32,11 @@ suspend the virtual machine. In either case, to restart it again,
 simply run `vagrant up`.
 
 $ ansible-playbook nginx.yml
+```
 
-3.Результат.
-Отработка ansible:
+3.Отработка ansible:
 
+```
 $ ansible-playbook nginx.yml
 
 PLAY [NGINX | install and configure] ******************************************************
@@ -55,10 +60,12 @@ RUNNING HANDLER [reload nginx] *************************************************
 changed: [nginx]
 
 PLAY RECAP ********************************************************************************
-nginx                      : ok=6    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+nginx                      : ok=6    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
 
 4.Проверка на стенде:
 
+```
 vagrant@nginx:~$ systemctl status nginx.service 
 ● nginx.service - A high performance web server and a reverse proxy server
      Loaded: loaded (/lib/systemd/system/nginx.service; enabled; vendor preset: enabled)
@@ -102,3 +109,4 @@ Commercial support is available at
 <p><em>Thank you for using nginx.</em></p>
 </body>
 </html>
+```
