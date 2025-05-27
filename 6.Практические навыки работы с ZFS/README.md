@@ -18,6 +18,7 @@ $ vagrant -v
 Vagrant 2.4.3
 ```
 Vagrantfile - generic/ubuntu2204
+
 Предварительно создаем файл hosts. \
 
 2.Запуск стенда. Запуск локального скрипта и playbook.
