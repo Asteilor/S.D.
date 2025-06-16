@@ -1,19 +1,4 @@
-### **Otus - Administrator Linux. Professional.**  
-#### **ДЗ №20 - Настройка PXE сервера для автоматической установки**  
-**Цель** - Отработать навыки установки и настройки DHCP, TFTP, PXE загрузчика и автоматической загрузки.
-
-**Задание:**  
-1) Настроить загрузку по сети дистрибутива Ubuntu 24
-2) Установка должна проходить из HTTP-репозитория.
-3) Настроить автоматическую установку c помощью файла user-data
-4) Задания со звёздочкой* : Настроить автоматическую загрузку по сети дистрибутива Ubuntu 24 c использованием UEFI
-
-
-****
-#### **Описание реализации:**  
-Реализация выполнена согласно описанным в методическом указании шагам. \
-Дз выполнено через ansible и проверено вручную \
-
+#### **Настройка PXE сервера для автоматической установки**  
 
 ***
 ##### Подготовка стенда.
@@ -32,8 +17,9 @@ ansible [core 2.16.3]
 $ vagrant -v
 Vagrant 2.4.3
 ```
-Vagrantfile - generic/ubuntu2204\
-Предварительно создаем файл *hosts*. \
+Vagrantfile - generic/ubuntu2204
+
+Предварительно создаем файл *hosts*. 
 
 ***
 ##### Запуск playbook.
@@ -43,14 +29,10 @@ $ ansible-playbook -i hosts pxe.yml
 ```
 ***
 ##### Проверка загрузки клиента.
-**Legacy:**\
-![Получение образа](https://github.com/YuP26/O_HT/blob/main/oht20-pxe/screens/legacy-1.png)\
-![Процесс установки](https://github.com/YuP26/O_HT/blob/main/oht20-pxe/screens/legacy-2.png)\
-![Установленная система](https://github.com/YuP26/O_HT/blob/main/oht20-pxe/screens/legacy-3.png)\
-\
-**UEFI:**\
-Добавлены конфиги в /srv/tftp/amd64/grub/grub.cfg. \
-Пришлось увеличивать объем ОЗУ до 8ГБ, иначе не зависает на разных этапах.\
-![GRUB](https://github.com/YuP26/O_HT/blob/main/oht20-pxe/screens/uefi-1.png)\
-![Процесс установки](https://github.com/YuP26/O_HT/blob/main/oht20-pxe/screens/uefi-2.png)\
-![Установленная система](https://github.com/YuP26/O_HT/blob/main/oht20-pxe/screens/uefi-3.png)\
+**Legacy:**
+
+
+**UEFI:**
+Добавлены конфиги в /srv/tftp/amd64/grub/grub.cfg. 
+Пришлось увеличивать объем ОЗУ до 8ГБ, иначе не зависает на разных этапах.
+
