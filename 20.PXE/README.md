@@ -31,8 +31,16 @@ $ ansible-playbook -i hosts pxe.yml
 ##### Проверка загрузки клиента.
 **Legacy:**
 
+![Screen:](https://github.com/Asteilor/S.D./blob/main/20.PXE/screens/legacy-1.png)
+![Screen:](https://github.com/Asteilor/S.D./blob/main/20.PXE/screens/legacy-2.png)
+![Screen:](https://github.com/Asteilor/S.D./blob/main/20.PXE/screens/legacy-3.png)
+
 
 **UEFI:**
 Добавлены конфиги в /srv/tftp/amd64/grub/grub.cfg. 
+
 Пришлось увеличивать объем ОЗУ до 8ГБ, иначе не зависает на разных этапах.
 
+![Screen:](https://github.com/Asteilor/S.D./blob/main/20.PXE/screens/uefi-1.png)
+![Screen:](https://github.com/Asteilor/S.D./blob/main/20.PXE/screens/uefi-2.png)
+![Screen:](https://github.com/Asteilor/S.D./blob/main/20.PXE/screens/uefi-3.png)
