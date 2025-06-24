@@ -8,8 +8,8 @@
 
 1. Проверяемя в режиме tap:
 
-2. ```
-   6: tap0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 1000
+```
+6: tap0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 1000
     link/ether a2:f4:6e:74:2c:2a brd ff:ff:ff:ff:ff:ff
     inet 10.10.10.1/24 scope global tap0
        valid_lft forever preferred_lft forever
