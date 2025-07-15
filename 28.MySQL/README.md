@@ -7,10 +7,10 @@
 ```
 | bookmaker          |
 | competition        |
- market              |
+| market             |
 | odds               |
-| outcome
-```
+| outcome            |
+```              
 Настроить GTID репликацию
 
 
