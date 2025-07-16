@@ -1,0 +1,2 @@
+- name: Импортировать задачи бэкапа PostgreSQL
+  import_tasks: backup.yml

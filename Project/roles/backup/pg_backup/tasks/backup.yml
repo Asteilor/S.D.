@@ -1,0 +1,22 @@
+- name: Убедиться, что директория /var/backups/pgsql существует
+  file:
+    path: /var/backups/pgsql
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0750'
+
+- name: Скопировать скрипт pg_backup.sh
+  template:
+    src: pg_backup.sh.j2
+    dest: /usr/local/bin/pg_backup.sh
+    owner: postgres
+    group: postgres
+    mode: '0750'
+
+- name: Запустить скрипт резервного копирования от пользователя postgres
+  become: true
+  shell: sudo -u postgres /usr/local/bin/pg_backup.sh
+
+
+
