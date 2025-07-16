@@ -1,0 +1,38 @@
+
+- name: Настройка Prometheus и Grafana
+  hosts: monitor
+  become: yes
+  tasks:
+    - name: Установить Prometheus
+      apt:
+        name: prometheus
+        state: present
+        update_cache: yes
+
+    - name: Установить Grafana
+      apt:
+        name: grafana
+        state: present
+        update_cache: yes
+
+    - name: Настроить Prometheus
+      template:
+        src: prometheus.yml.j2
+        dest: /etc/prometheus/prometheus.yml
+        mode: '0644'
+
+    - name: Перезапустить Prometheus
+      service:
+        name: prometheus
+        state: restarted
+
+    - name: Настроить Grafana
+      template:
+        src: grafana.ini.j2
+        dest: /etc/grafana/grafana.ini
+        mode: '0644'
+
+    - name: Перезапустить Grafana
+      service:
+        name: grafana-server
+        state: restarted
