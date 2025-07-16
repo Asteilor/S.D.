@@ -1,0 +1,43 @@
+- name: Создать пользователя nodeusr (если не существует)
+  tags: node_exporter
+  ansible.builtin.user:
+    name: nodeusr
+    shell: /usr/sbin/nologin
+    system: yes
+
+- name: Распаковать node_exporter
+  tags: node_exporter
+  ansible.builtin.unarchive:
+    src: node_exporter-1.9.0.linux-amd64.tar.gz
+    dest: /opt/
+    remote_src: no  # Файл локальный (в папке роли)
+    creates: /opt/node_exporter-1.9.0.linux-amd64/node_exporter
+
+- name: Скопировать бинарник в /usr/local/bin
+  tags: node_exporter
+  ansible.builtin.copy:
+    src: /opt/node_exporter-1.9.0.linux-amd64/node_exporter
+    dest: /usr/local/bin/node_exporter
+    remote_src: yes
+    mode: '0755'
+    owner: nodeusr
+    group: nodeusr
+
+- name: Создать systemd unit-файл
+  tags: node_exporter
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    mode: '0644'
+
+- name: Перезапустить демона systemd
+  tags: node_exporter
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Включить и запустить node_exporter
+  tags: node_exporter
+  ansible.builtin.service:
+    name: node_exporter
+    enabled: yes
+    state: started
