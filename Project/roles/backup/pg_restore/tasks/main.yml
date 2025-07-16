@@ -1,0 +1,46 @@
+- name: Удалить базу webapp, если она существует
+  become: true
+  become_user: postgres
+  postgresql_db:
+    name: webapp
+    state: absent
+
+- name: Создать временную директорию для восстановления
+  become: true
+  become_user: backup
+  file:
+    path: /tmp/restore
+    state: directory
+    mode: '0700'
+
+- name: Извлечь дамп pg_dumpall.sql из конкретного архива
+  become: true
+  become_user: backup
+  shell: |
+    cd /tmp/restore && borg extract --strip-components 2 backup@192.168.56.13:/var/backup/repos::vm-db-master-20250714T183508 var/backups/pg_dumpall.sql
+    
+- name: Переместить дамп в доступное место для postgres
+  become: true
+  shell: |
+    mv /tmp/restore/pg_dumpall.sql /var/lib/postgresql/pg_restore.sql
+    chown postgres:postgres /var/lib/postgresql/pg_restore.sql
+    chmod 0600 /var/lib/postgresql/pg_restore.sql
+
+- name: Восстановить PostgreSQL из дампа
+  become: true
+  become_user: postgres
+  command: psql -f /var/lib/postgresql/pg_restore.sql
+  register: restore_result
+
+- name: Показать результат восстановления
+  debug:
+    var: restore_result.stdout_lines
+
+- name: Убедиться, что пользователь replica существует
+  become: true
+  become_user: postgres
+  postgresql_user:
+    name: replica
+    password: replica_pass
+    role_attr_flags: "REPLICATION"
+    state: present
