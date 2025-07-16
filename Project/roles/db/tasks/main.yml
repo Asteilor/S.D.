@@ -1,0 +1,261 @@
+---
+- name: Проверить существование кластера
+  become: yes
+  stat:
+    path: "{{ pg_data_dir }}/PG_VERSION"
+  register: pg_cluster_exists
+
+- name: Установить зависимости для работы с PostgreSQL в Ansible
+  become: yes
+  apt:
+    name:
+      - python3-psycopg2
+      - libpq-dev
+    state: present
+    update_cache: yes
+
+- name: Установить PostgreSQL {{ pg_version }}
+  become: yes
+  apt:
+    name:
+      - "postgresql-{{ pg_version }}"
+      - "postgresql-client-{{ pg_version }}"
+      - "postgresql-contrib-{{ pg_version }}"
+    state: present
+    update_cache: yes
+
+- name: Убедиться, что каталог данных существует
+  become: yes
+  file:
+    path: "{{ pg_data_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0700"
+
+- name: Инициализировать кластер PostgreSQL (если нужно)
+  become: yes
+  shell: |
+    sudo -u postgres /usr/lib/postgresql/{{ pg_version }}/bin/initdb -D {{ pg_data_dir }}
+  args:
+    creates: "{{ pg_data_dir }}/PG_VERSION"
+  when: not pg_cluster_exists.stat.exists
+
+- name: Настроить postgresql.conf
+  become: yes
+  template:
+    src: postgresql.conf.j2
+    dest: "/etc/postgresql/{{ pg_version }}/main/postgresql.conf"
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  notify: Restart PostgreSQL
+
+- name: Настроить pg_hba.conf
+  become: yes
+  template:
+    src: pg_hba.conf.j2
+    dest: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  notify: Restart PostgreSQL
+
+- name: Применить handler (перезапуск PostgreSQL)
+  meta: flush_handlers
+
+- name: Убедиться, что PostgreSQL запущен и включён
+  become: yes
+  service:
+    name: "postgresql@{{ pg_version }}-main"
+    enabled: yes
+    state: started
+
+- name: Установить права для sudo на master
+  become: yes
+  lineinfile:
+    path: /etc/sudoers
+    line: 'vagrant ALL=(postgres) NOPASSWD: ALL'
+    validate: 'visudo -cf %s'
+  when: pg_role == "master"
+
+- name: Создать/обновить пользователя репликации
+  become: yes
+  shell: |
+    sudo -u postgres psql -c "DO \$\$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_roles WHERE rolname = '{{ rep_user }}'
+      ) THEN
+        CREATE ROLE {{ rep_user }} WITH LOGIN REPLICATION PASSWORD '{{ rep_pass }}';
+      ELSE
+        ALTER ROLE {{ rep_user }} WITH LOGIN REPLICATION PASSWORD '{{ rep_pass }}';
+      END IF;
+    END
+    \$\$;"
+  args:
+    executable: /bin/bash
+  when: pg_role == "master"
+
+# Только для slave
+- name: Остановить PostgreSQL на слейве
+  become: yes
+  service:
+    name: "postgresql@{{ pg_version }}-main"
+    state: stopped
+  when: pg_role == "slave"
+
+- name: Удалить старый data_dir на слейве
+  become: yes
+  file:
+    path: "{{ pg_data_dir }}"
+    state: absent
+  when: pg_role == "slave"
+
+- name: Создать слот репликации на мастере
+  become: yes
+  become_user: postgres
+  delegate_to: "{{ pg_master_host }}"
+  command: >
+    psql -c "SELECT * FROM pg_create_physical_replication_slot('replica_slot')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name = 'replica_slot');"
+  register: slot_creation
+  changed_when: "'replica_slot' in slot_creation.stdout"
+  when: pg_role == "slave"
+
+- name: Проверить доступность master
+  wait_for:
+    host: "{{ pg_master_host }}"
+    port: 5432
+    timeout: 10
+  when: pg_role == "slave"
+
+- name: Подготовить временную директорию
+  become: yes
+  file:
+    path: "/tmp/pg_replication_temp"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0700"
+  when: pg_role == "slave"
+
+- name: Выполнить pg_basebackup
+  become: yes
+  shell: |
+    env PGPASSWORD={{ rep_pass }} pg_basebackup \
+      -h {{ pg_master_host }} \
+      -D {{ pg_data_dir }} \
+      -U {{ rep_user }} \
+      -Fp -Xs -P -v -R \
+      -S "replica_slot"
+  args:
+    creates: "{{ pg_data_dir }}/PG_VERSION"
+  register: backup_result
+  retries: 3
+  delay: 10
+  until: backup_result.rc == 0
+  when: pg_role == "slave"
+  no_log: false
+
+- name: Установить владельца и права на каталог данных PostgreSQL (slave)
+  become: yes
+  file:
+    path: "{{ pg_data_dir }}"
+    owner: postgres
+    group: postgres
+    recurse: yes
+  when: pg_role == "slave"
+
+- name: Проверить файлы репликации
+  become: yes
+  stat:
+    path: "{{ item }}"
+  with_items:
+    - "{{ pg_data_dir }}/standby.signal"
+    - "{{ pg_data_dir }}/postgresql.auto.conf"
+  register: rep_files
+  when: pg_role == "slave"
+
+- name: Показать содержимое postgresql.auto.conf (для отладки)
+  become: yes
+  shell: cat "{{ pg_data_dir }}/postgresql.auto.conf"
+  register: auto_conf_content
+  when: pg_role == "slave"
+
+- name: Вывод postgresql.auto.conf
+  debug:
+    msg: "{{ auto_conf_content.stdout }}"
+  when: pg_role == "slave"
+
+- name: Запустить PostgreSQL на слейве (с проверкой)
+  block:
+    - name: Попытка запуска службы
+      become: yes
+      service:
+        name: "postgresql@{{ pg_version }}-main"
+        state: started
+        enabled: yes
+      register: start_result
+      ignore_errors: yes
+
+    - name: Проверить статус службы
+      command: systemctl status "postgresql@{{ pg_version }}-main"
+      register: service_status
+      changed_when: false
+      when: start_result is failed
+
+    - name: Показать логи PostgreSQL
+      command: journalctl -u "postgresql@{{ pg_version }}-main" -n 20 --no-pager
+      register: pg_logs
+      changed_when: false
+      when: start_result is failed
+
+    - name: Проверить подключение к master
+      become: yes
+      become_user: postgres
+      command: >
+        psql -h "{{ pg_master_host }}" -U "{{ rep_user }}" -c "IDENTIFY_SYSTEM" replication=1
+      register: rep_check
+      changed_when: false
+      when: start_result is failed
+
+    - name: Завершить с ошибкой если сервис не запустился
+      fail:
+        msg: |
+          Не удалось запустить PostgreSQL!
+          Статус службы: {{ service_status.stdout | default('N/A') }}
+          Логи сервиса: {{ pg_logs.stdout | default('N/A') }}
+          Проверка подключения к master: {{ rep_check.stdout | default('N/A') }}
+      when: start_result is failed
+  when: pg_role == "slave"
+  
+- name: Установить пароль для пользователя postgres
+  become: true
+  become_user: postgres
+  shell: |
+    psql -c "ALTER USER postgres WITH PASSWORD '{{ pg_admin_pass }}';"
+  environment:
+    PGPASSWORD: ""
+  when: pg_role == "master"
+
+- name: Создать базу данных webapp
+  become: true
+  become_user: postgres
+  postgresql_db:
+    name: webapp
+    state: present
+  when: pg_role == "master"
+
+- name: Создать таблицу messages, если её нет
+  become: true
+  become_user: postgres
+  postgresql_query:
+    db: webapp
+    query: |
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        message TEXT NOT NULL
+      );
+  when: pg_role == "master"
