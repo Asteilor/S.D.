@@ -1,0 +1,9 @@
+# TYPE  DATABASE        USER       ADDRESS              METHOD
+local   all             postgres                        peer
+local   all             all                             md5
+host    all             all        127.0.0.1/32         md5
+host    all             all        192.168.56.10/32     md5
+host    all             postgres   192.168.56.10/32     md5
+
+# Репликация
+host    replication     replica    192.168.56.12/32     scram-sha-256
