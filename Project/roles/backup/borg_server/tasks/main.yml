@@ -1,0 +1,55 @@
+- name: Установить borgbackup
+  tags: [backup/borg_server]
+  become: true
+  apt:
+    name: borgbackup
+    state: present
+    update_cache: yes
+  register: borg_install
+
+- name: Debug - Проверка установки borgbackup
+  tags: [backup/borg_server]
+  command: which borg
+  register: borg_check
+  changed_when: false
+
+- debug:
+    var: borg_check
+    verbosity: 1
+
+- name: Создать каталог репозитория Borg
+  file:
+    path: /var/backup/repos
+    state: directory
+    owner: backup
+    group: backup
+    mode: '0700'
+
+- name: Убедиться, что у пользователя backup задан shell и правильный home
+  become: true
+  user:
+    name: backup
+    shell: /bin/bash
+    home: /home/backup  # Стандартный домашний каталог
+    create_home: yes     # Создать, если не существует
+
+- name: Ensure correct home directory for backup user
+  become: true
+  file:
+    path: /home/backup
+    state: directory
+    owner: backup
+    group: backup
+    mode: '0700'
+
+- name: Инициализировать репозиторий Borg
+  become: true
+  shell: sudo -u backup borg init --encryption=none /var/backup/repos
+  args:
+    creates: /var/backup/repos/config
+  environment:
+    HOME: /home/backup
+    BORG_BASE_DIR: /tmp
+
+
+
