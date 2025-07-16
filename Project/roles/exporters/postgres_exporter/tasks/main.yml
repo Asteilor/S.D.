@@ -1,0 +1,51 @@
+---
+- name: Создать пользователя postgres_exporter
+  tags: postgres_exporter
+  become: yes
+  ansible.builtin.user:
+    name: postgres_exporter
+    shell: /usr/sbin/nologin
+    system: yes
+
+- name: Распаковать postgres_exporter
+  tags: postgres_exporter
+  become: yes
+  ansible.builtin.unarchive:
+    src: postgres_exporter-0.15.0.linux-amd64.tar.gz
+    dest: /opt/
+    remote_src: no
+    creates: /opt/postgres_exporter-0.15.0.linux-amd64/postgres_exporter
+
+- name: Скопировать бинарник в /usr/local/bin
+  tags: postgres_exporter
+  become: yes
+  ansible.builtin.copy:
+    src: /opt/postgres_exporter-0.15.0.linux-amd64/postgres_exporter
+    dest: /usr/local/bin/postgres_exporter
+    remote_src: yes
+    mode: '0755'
+    owner: postgres_exporter
+    group: postgres_exporter
+
+- name: Скопировать systemd unit-файл
+  tags: postgres_exporter
+  become: yes
+  ansible.builtin.template:
+    src: postgres_exporter.service.j2
+    dest: /etc/systemd/system/postgres_exporter.service
+    mode: '0644'
+
+- name: Перезагрузить systemd
+  tags: postgres_exporter
+  become: yes
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Включить и запустить postgres_exporter
+  tags: postgres_exporter
+  become: yes
+  ansible.builtin.service:
+    name: postgres_exporter
+    enabled: true
+    state: started
+
