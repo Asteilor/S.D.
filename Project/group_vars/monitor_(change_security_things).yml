@@ -1,0 +1,8 @@
+telegram_token: "my_token"
+telegram_chat_id: "my_chat_id"
+
+proxy_env:
+  http_proxy: "http://mylogin:mypass@ip:port"
+  https_proxy: "http://mylogin:mypass@ip:port"
+
+

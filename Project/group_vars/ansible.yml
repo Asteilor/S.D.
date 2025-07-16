@@ -1,0 +1,3 @@
+borg_backup_paths:
+  - /etc/ansible
+  - /home/vagrant/project

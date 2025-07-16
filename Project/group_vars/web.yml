@@ -1,0 +1,3 @@
+borg_backup_paths:
+  - /etc/nginx
+  - /var/www

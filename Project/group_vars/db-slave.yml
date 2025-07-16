@@ -1,0 +1,5 @@
+borg_backup_paths:
+  - /var/backups/pg_dumpall.sql
+  - /etc
+  - /var/log
+
