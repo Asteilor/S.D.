@@ -1,0 +1,11 @@
+# Значения по умолчанию для роли db
+pg_version: "14"
+pg_data_dir: "/var/lib/postgresql/{{ pg_version }}/main"
+
+pg_admin_user: "postgres"
+pg_admin_pass: "admin_pass"        
+
+rep_user: "replica"
+rep_pass: "replica_pass"
+rep_hosts: "192.168.56.12/32"
+
