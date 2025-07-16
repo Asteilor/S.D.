@@ -1,0 +1,13 @@
+#!/bin/bash
+set -euo pipefail
+
+BACKUP_DIR="/var/backups/pgsql"
+TS=$(date +%F_%H-%M-%S)
+FILENAME="$BACKUP_DIR/pg_dumpall_$TS.sql"
+
+pg_dumpall > "$FILENAME"
+
+# Ограничим количество дампов (например, оставляем только последние 5)
+ls -1t "$BACKUP_DIR"/pg_dumpall_*.sql | tail -n +6 | xargs -r rm -f
+
+
