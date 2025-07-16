@@ -1,0 +1,9 @@
+- name: Restart PostgreSQL
+  become: yes
+  service:
+    name: "postgresql@{{ pg_version }}-main"
+    state: restarted
+  
+- name: Ошибка подключения к master
+  debug:
+    msg: "Не удалось подключиться к master {{ pg_master_host }}:5432"  
