@@ -1,0 +1,86 @@
+- name: Ensure /home/backup/.ssh exists
+  become: true
+  file:
+    path: /home/backup/.ssh
+    state: directory
+    owner: backup
+    group: backup
+    mode: '0700'
+
+- name: Generate SSH key for backup user manually
+  become: true
+  shell: |
+    test -f /home/backup/.ssh/id_ed25519 || sudo -u backup ssh-keygen -t ed25519 -N '' -f /home/backup/.ssh/id_ed25519
+  args:
+    creates: /home/backup/.ssh/id_ed25519
+
+# 🟡 Критически важные правки прав доступа (после генерации ключа)
+- name: Ensure correct ownership for id_ed25519
+  become: true
+  file:
+    path: /home/backup/.ssh/id_ed25519
+    owner: backup
+    group: backup
+    mode: '0600'
+
+- name: Ensure correct ownership for id_ed25519.pub
+  become: true
+  file:
+    path: /home/backup/.ssh/id_ed25519.pub
+    owner: backup
+    group: backup
+    mode: '0644'
+
+- name: Ensure correct ownership for .ssh directory
+  become: true
+  file:
+    path: /home/backup/.ssh
+    state: directory
+    owner: backup
+    group: backup
+    mode: '0700'
+
+- name: Ensure vm-monitor host key is in known_hosts
+  become: true
+  become_user: backup
+  shell: ssh-keyscan -H 192.168.56.13
+  register: scanned_key
+
+- name: Add vm-monitor host key to known_hosts
+  become: true
+  become_user: backup
+  lineinfile:
+    path: /home/backup/.ssh/known_hosts
+    create: yes
+    line: "{{ scanned_key.stdout }}"
+    state: present
+
+- name: Ensure .ssh directory exists on vm-monitor
+  become: true
+  file:
+    path: /home/backup/.ssh
+    state: directory
+    owner: backup
+    group: backup
+    mode: '0700'
+  delegate_to: vm-monitor
+  when: inventory_hostname != 'vm-monitor'
+
+- name: Fetch public key
+  become: true
+  slurp:
+    src: /home/backup/.ssh/id_ed25519.pub
+  register: pubkey_raw
+
+- name: Set fact with public key content
+  set_fact:
+    backup_pubkey: "{{ pubkey_raw['content'] | b64decode }}"
+
+- name: Authorize backup user on vm-monitor
+  ansible.builtin.authorized_key:
+    user: backup
+    state: present
+    key: "{{ backup_pubkey }}"
+  become: true
+  delegate_to: vm-monitor
+  when: inventory_hostname != 'vm-monitor'

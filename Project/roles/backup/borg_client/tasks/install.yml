@@ -1,0 +1,17 @@
+- name: Установить borgbackup
+  become: true
+  ansible.builtin.apt:
+    name: borgbackup
+    state: present
+    update_cache: yes
+    
+- name: Ensure backup user exists
+  become: true
+  ansible.builtin.user:
+    name: backup
+    shell: /bin/bash
+    home: /home/backup
+    group: backup
+    create_home: true
+    state: present
+   

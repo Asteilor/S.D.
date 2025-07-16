@@ -1,0 +1,89 @@
+- name: Создать директорию для дампа (только на БД-серверах)
+  file:
+    path: /var/backups
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0700'
+  become: true
+  when: inventory_hostname in groups['db-master'] or inventory_hostname in groups['db-slave']
+
+- name: Удалить старый дамп, если он существует
+  file:
+    path: /var/backups/pg_dumpall.sql
+    state: absent
+  become: true
+  when: inventory_hostname in groups['db-master'] or inventory_hostname in groups['db-slave']
+
+- name: Сделать дамп всех баз PostgreSQL (только на БД-серверах)
+  become: true
+  become_user: postgres
+  become_flags: "-H -S"
+  shell: |
+    mkdir -p /var/backups
+    pg_dumpall > /var/backups/pg_dumpall.sql
+  args:
+    executable: /bin/bash
+  when: "'db-master' in group_names or 'db-slave' in group_names"
+
+- name: Дать доступ backup к каталогу с дампом (если он есть)
+  become: true
+  file:
+    path: /var/backups
+    mode: '0750'
+    owner: postgres
+    group: backup
+  when: inventory_hostname in groups['db-master'] or inventory_hostname in groups['db-slave']
+
+- name: Назначить владельца файла дампа (если он есть)
+  become: true
+  file:
+    path: /var/backups/pg_dumpall.sql
+    owner: postgres
+    group: backup
+    mode: '0640'
+  when: inventory_hostname in groups['db-master'] or inventory_hostname in groups['db-slave']
+
+- name: Запустить borg backup (мульти-пути)
+  become: true
+  become_user: backup
+  shell: |
+    borg create --stats --compression lz4 \
+      backup@192.168.56.13:/var/backup/repos::{{ inventory_hostname }}-{{ ansible_date_time.iso8601_basic_short }} \
+      {{ borg_backup_paths | join(' ') }} \
+      --exclude '/etc/ssh/*_key' \
+      --exclude '/etc/ssh/*_key.pub' \
+      --exclude '/etc/polkit-1' \
+      --exclude '/etc/ufw' \
+      --exclude '/etc/multipath' \
+      --exclude '/etc/postgresql' \
+      --exclude '/var/log/auth*' \
+      --exclude '/var/log/kern*' \
+      --exclude '/var/log/syslog*' \
+      --exclude '/var/log/dmesg*' \
+      --exclude '/var/log/btmp*' \
+      --exclude '/var/log/apt/*' \
+      --exclude '/var/log/unattended-upgrades' \
+      --exclude '/var/log/postgresql' \
+      --exclude '/var/lib/sudo' \
+      --exclude '/var/log/journal' \
+      --exclude '/etc/shadow*' \
+      --exclude '/etc/gshadow*' \
+      --exclude '/etc/ssl/private' \
+      --exclude '/etc/sudoers*' \
+      --exclude '/etc/security/opasswd' \
+      --exclude '/etc/.pwd.lock' \
+      --exclude '/etc/netplan/50-cloud-init.yaml' \
+      --exclude '/etc/iscsi/initiatorname.iscsi' \
+      --exclude '/var/log/private' \
+      --exclude '/var/log/cloud-init*'
+  environment:
+    BORG_RELOCATED_REPO_ACCESS_IS_OK: "yes"
+    BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK: "yes"
+  register: borg_result
+  failed_when: borg_result.rc not in [0, 1]
+
+- name: Показать результат borg backup
+  debug:
+    msg: "Borg backup completed on {{ inventory_hostname }}: {{ borg_result.stdout_lines | default('no output') }}"
+

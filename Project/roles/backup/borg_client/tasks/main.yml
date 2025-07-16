@@ -1,0 +1,8 @@
+- name: Установить Borg
+  ansible.builtin.import_tasks: install.yml
+
+- name: Настроить SSH-доступ к бэкап-серверу
+  ansible.builtin.import_tasks: ssh.yml
+
+- name: Запустить резервное копирование
+  ansible.builtin.import_tasks: backup.yml
