@@ -1,0 +1,127 @@
+- name: Настройка веб-приложения
+  hosts: web
+  become: yes
+  roles:
+    - web
+
+- name: Настройка PostgreSQL master
+  hosts: db-master
+  become: true
+  roles:
+    - role: db
+      tags: ['master']
+  vars:
+    pg_role: master
+    pg_version: "14"
+    pg_data_dir: "/var/lib/postgresql/14/main"
+    pg_listen_address: "0.0.0.0"
+    rep_user: "replica"
+    rep_pass: "replica_pass"
+    rep_hosts: "192.168.56.12"
+    pg_admin_pass: "admin_pass"
+
+- name: Настройка PostgreSQL slave
+  hosts: db-slave
+  become: true
+  roles:
+    - role: db
+      tags: ['slave']
+  vars:
+    pg_role: slave
+    pg_version: "14"
+    pg_data_dir: "/var/lib/postgresql/14/main"
+    pg_master_host: "192.168.56.11"
+    rep_user: "replica"
+    rep_pass: "replica_pass"
+    pg_admin_pass: "admin_pass"
+
+- name: Установка Prometheus
+  hosts: monitor
+  roles:
+    - role: monitoring/prometheus
+
+- name: Установка node_exporter
+  hosts: all
+  become: yes
+  roles:
+    - role: exporters/node_exporter
+      tags: node_exporter
+
+- name: Установка postgres_exporter
+  hosts: db-master:db-slave
+  roles:
+    - role: exporters/postgres_exporter
+
+- name: Установка Grafana
+  hosts: monitor
+  become: yes
+  roles:
+    - role: monitoring/grafana
+      tags: grafana
+
+- name: Настройка Grafana (дата сорс и дашборды)
+  hosts: monitor
+  become: yes
+  roles:
+    - role: monitoring/grafana_config
+      tags: grafana_config
+
+- name: Установка Alertmanager
+  hosts: monitor
+  become: yes
+  roles:
+    - role: monitoring/alertmanager
+      tags: alertmanager
+
+- name: Настройка rsyslog-сервера (централизованное логирование)
+  hosts: monitor
+  become: yes
+  roles:
+    - role: logging/rsyslog_server
+      tags: logging/rsyslog_server
+
+- name: Настройка rsyslog-клиентов (отправка логов на сервер)
+  hosts: web:db-master:db-slave:ansible
+  become: yes
+  roles:
+    - role: logging/rsyslog_client
+      tags: logging/rsyslog_client
+
+# 🟢 Сначала дамп БД
+- name: Резервное копирование PostgreSQL (pg_dumpall + borg)
+  hosts: db-master:db-slave
+  become: true
+  roles:
+    - role: backup/pg_backup
+      tags: backup/pg_backup
+
+# 🟢 Затем бэкап borg на клиентах
+- name: Установка borgbackup на всех клиентах (кроме ansible)
+  hosts: web:db-master:db-slave
+  become: yes
+  roles:
+    - role: backup/borg_client
+      tags: backup/borg_client
+
+# 🟢 И на сервере — borg init (один раз)
+- name: Установка borgbackup на сервере мониторинга (репозиторий)
+  hosts: monitor
+  become: yes
+  roles:
+    - role: backup/borg_server
+      tags: backup/borg_server
+      
+- name: Восстановление PostgreSQL из архива Borg
+  hosts: db-master
+  become: true
+  roles:
+    - role: backup/pg_restore
+      tags: backup/pg_restore
+      
+- name: Настройка UFW
+  hosts: all
+  become: yes
+  roles:
+    - role: security/ufw
+      tags: security/ufw
+
